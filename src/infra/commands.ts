@@ -5,7 +5,21 @@ import { promisify } from 'node:util'
 import { z } from 'zod'
 import type { Deployment } from '../deployment.ts'
 
-const exec = promisify(execFile)
+/**
+ * Runs a CLI and resolves `{ stdout, stderr }`.
+ *
+ * 不写 `promisify(execFile)`：在 dsh 运行时里 `execFile[promisify.custom]` 可能已不存在，
+ * 于是 `promisify` 退回默认行为，把回调的多个参数收成**数组** —— 那样 `{ stdout }` 解构出
+ * undefined，而错误要等到很下游的 `raw.search` 才炸（实测：github 轮询报
+ * "Cannot read properties of undefined (reading 'search')"）。手写包装只依赖回调签名。
+ */
+const exec = (program: string, args: string[], options: Parameters<typeof execFile>[2]) =>
+  new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+    execFile(program, args, options as never, (error, stdout, stderr) => {
+      if (error) { reject(Object.assign(error, { stdout: String(stdout ?? ''), stderr: String(stderr ?? '') })); return }
+      resolve({ stdout: String(stdout ?? ''), stderr: String(stderr ?? '') })
+    })
+  })
 const TIMEOUT_MS = 90_000
 /**
  * Error thrown by Commands when a CLI invocation fails, capturing stderr diagnostics, API error codes, and exit status without echoing command arguments.
@@ -17,6 +31,8 @@ export class CliError extends Error {
 /** Extracts a sanitized error from a failed subprocess without echoing argv, which may contain message text. */
 export function commandError(error: unknown, program = 'command'): Error {
   if (error instanceof Error && error.name === 'AbortError') return error
+  // 诊断错误（DIAG 前缀）原样透传，否则会被下面的 ended() 压成「command failed」。
+  if (error instanceof Error && error.message.startsWith('DIAG')) return error
   const exitCode = error && typeof error === 'object' && 'code' in error && typeof error.code === 'number' ? error.code : undefined
   if (error && typeof error === 'object' && 'stderr' in error && typeof error.stderr === 'string') {
     const stderr = error.stderr.trim()
@@ -67,9 +83,9 @@ export class Commands {
   withSignal(signal?: AbortSignal): Commands { return signal ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal])) : this }
   async run(program: string, args: string[], cwd?: string): Promise<string> {
     try {
-      const { stdout } = await exec(program, args, { cwd, signal: this.signal, timeout: TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
+      const result = await exec(program, args, { cwd, signal: this.signal, timeout: TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
         env: { ...process.env, ...this.environment, GH_PROMPT_DISABLED: '1', LARKSUITE_CLI_NO_UPDATE_NOTIFIER: '1', LARKSUITE_CLI_NO_SKILLS_NOTIFIER: '1' } })
-      return stdout
+      return result.stdout
     } catch (error) { throw commandError(error, program) }
   }
   /** Runs the agent's GitHub CLI and parses its JSON output; callers should prefer `api`, which is restricted to the configured repository and validates output. */

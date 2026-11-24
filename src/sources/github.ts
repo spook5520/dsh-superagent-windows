@@ -227,6 +227,8 @@ async function readStream(ctx: SourceContext, round: Round, id: string, path: st
     if (error instanceof CliError && error.code === 304) return
     throw error
   }
+  // api 的字符串重载若返回非 string（上游改过返回值形状时），在源头报错而不是等 raw.search 炸。
+  if (typeof raw !== 'string') throw new Error(`GitHub api returned ${typeof raw} for ${path}`)
   const { headers, body } = included(raw)
   const items = validItems(ListedSchema, z.array(z.unknown()).parse(JSON.parse(body)), round.tally)
   const { login } = ctx.deployment.github
@@ -314,6 +316,8 @@ async function pollNotifications(ctx: SourceContext, round: Round): Promise<{ co
   const { repository } = ctx.deployment
   const path = `notifications?all=true&per_page=50&since=${encodeURIComponent(since)}`
   const raw = await commands.api(path, '--include')
+  // api 的字符串重载若返回非 string（上游改过返回值形状时），在源头报错而不是等 raw.search 炸。
+  if (typeof raw !== 'string') throw new Error(`GitHub api returned ${typeof raw} for ${path}`)
   const split = raw.search(/\r?\n\r?\n/)
   if (split < 0) throw new Error('GitHub returned no HTTP headers')
   const headers = raw.slice(0, split)
