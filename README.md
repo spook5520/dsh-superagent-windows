@@ -1,5 +1,25 @@
 # DSH-Superagent
 
+> **本仓库是社区续维护分支 / This is a community-maintained continuation.**
+>
+> | | |
+> |---|---|
+> | 直接来源 / Forked from | [`Check-mj/dsh-superagent-windows`](https://github.com/Check-mj/dsh-superagent-windows) |
+> | 上游来源 / Upstream | [`deepseek-ai/dsh-superagent-prototype`](https://github.com/deepseek-ai/dsh-superagent-prototype) · MIT · Copyright (c) 2026 DeepSeek Harness Team |
+> | 原维护者状态 | 作者已说明丢失源文件、不再更新（2026-11-06），并建议自行 fork 继续 |
+> | 本分支维护者 | [@spook5520](https://github.com/spook5520) |
+>
+> **本分支做了什么 / What this branch changed**
+>
+> - **DSH 0.2.2-rc.1 → rc.5 适配**：devDependencies 推到 `0.2.2-rc.5`；peer 范围保持 `>=0.2.2-rc.1 <0.2.3-0`。
+> - **修好 rc.5 下 GitHub 轮询崩溃**：运行时 `execFile[promisify.custom]` 不存在时 `promisify` 会退回默认行为，
+>   把回调参数收成数组，`const { stdout }` 于是解构出 `undefined`，最终在很下游炸成
+>   `Cannot read properties of undefined (reading 'search')`。改为手写 `execFile` 包装，只依赖回调签名。
+> - **文档清理**：删掉指向本仓库并不存在的引用（`runCli`、`bili_kb`/`bilibili` 健康项）和一条从别处抄来的验证结论。
+>
+> **不属于本分支的工作**（保留原作者实现）：Electron 桌面壳 `windows-app/`、多实例轮询、Watchdog 控制回路、Router 分片。
+> 与上游的逐条差异仍记录在 [WINDOWS-DELTA.md](WINDOWS-DELTA.md)。
+
 > **这是 DeepSeek 团队最新的 SuperAgent 在 DSH 工具里的 Windows 深度适配版（非官方产品，版权归原作者）。**
 > Upstream: [deepseek-ai/dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-superagent-prototype) · MIT · Copyright (c) 2026 DeepSeek Harness Team
 >
